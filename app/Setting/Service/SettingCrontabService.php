@@ -8,6 +8,7 @@ use Hyperf\Config\Annotation\Value;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\Redis;
 use Mine\Abstracts\AbstractService;
+use Mine\Annotation\DeleteCache;
 use Mine\Crontab\MineCrontab;
 use Mine\Crontab\MineExecutor;
 use Psr\Container\ContainerInterface;
@@ -51,6 +52,7 @@ class SettingCrontabService extends AbstractService
      * 保存
      * @param array $data
      * @return int
+     * @throws \RedisException
      */
     public function save(array $data): int
     {
@@ -65,6 +67,7 @@ class SettingCrontabService extends AbstractService
      * @param int $id
      * @param array $data
      * @return bool
+     * @throws \RedisException
      */
     public function update(int $id, array $data): bool
     {
@@ -74,10 +77,12 @@ class SettingCrontabService extends AbstractService
         return $res;
     }
 
-    /**
+    /*
+    *
      * 删除
      * @param array $ids
      * @return bool
+     * @throws \RedisException
      */
     public function delete(array $ids): bool
     {
@@ -109,5 +114,11 @@ class SettingCrontabService extends AbstractService
         $executor = $this->container->get(MineExecutor::class);
 
         return $executor->execute($crontab, true);
+    }
+
+    #[DeleteCache('crontab')]
+    public function changeStatus(int $id, string $value, string $filed = 'status'): bool
+    {
+        return parent::changeStatus($id, $value, $filed);
     }
 }

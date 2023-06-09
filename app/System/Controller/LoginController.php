@@ -84,4 +84,28 @@ class LoginController extends MineController
     {
         return $this->success(['token' => $user->refresh()]);
     }
+
+    /**
+     * 获取每日的必应背景图
+     * @return ResponseInterface
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \Psr\SimpleCache\InvalidArgumentException
+     */
+    #[GetMapping("getBingBackgroundImage")]
+    public function getBingBackgroundImage(): ResponseInterface
+    {
+        try {
+            $response = file_get_contents('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1');
+            $content = json_decode($response);
+            if (! empty($content?->images[0]?->url)) {
+                return $this->success([
+                    'url' => 'https://cn.bing.com' . $content?->images[0]?->url
+                ]);
+            }
+            throw new \Exception;
+        } catch (\Exception $e) {
+            return $this->error('获取必应背景失败');
+        }
+    }
 }

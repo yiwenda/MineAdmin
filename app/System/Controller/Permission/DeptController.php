@@ -14,7 +14,10 @@ use Hyperf\HttpServer\Annotation\PutMapping;
 use Mine\Annotation\Auth;
 use Mine\Annotation\OperationLog;
 use Mine\Annotation\Permission;
+use Mine\Annotation\RemoteState;
 use Mine\MineController;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -63,6 +66,12 @@ class DeptController extends MineController
         return $this->success($this->service->getSelectTree());
     }
 
+    #[GetMapping("getLeaderList"), Permission("system:dept, system:dept:index")]
+    public function getLeaderList()
+    {
+        return $this->success($this->service->getLeaderList($this->request->all()));
+    }
+
     /**
      * 新增部门
      * @param SystemDeptRequest $request
@@ -74,6 +83,32 @@ class DeptController extends MineController
     public function save(SystemDeptRequest $request): ResponseInterface
     {
         return $this->success(['id' => $this->service->save($request->all())]);
+    }
+
+    /**
+     * 新增部门领导
+     * @param SystemDeptRequest $request
+     * @return ResponseInterface
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     */
+    #[PostMapping("addLeader"), Permission("system:dept:update"), OperationLog("新增部门领导")]
+    public function addLeader(SystemDeptRequest $request): ResponseInterface
+    {
+        return $this->service->addLeader($request->validated()) ? $this->success() : $this->error();
+    }
+
+    /**
+     * 删除部门领导
+     * @param SystemDeptRequest $request
+     * @return ResponseInterface
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    #[DeleteMapping("delLeader"), Permission("system:dept:delete"), OperationLog("删除部门领导")]
+    public function delLeader(): ResponseInterface
+    {
+        return $this->service->delLeader($this->request->all()) ? $this->success() : $this->error();
     }
 
     /**
@@ -157,5 +192,15 @@ class DeptController extends MineController
             (string) $this->request->input('numberName'),
             (int) $this->request->input('numberValue', 1),
         ) ? $this->success() : $this->error();
+    }
+
+    /**
+     * 远程万能通用列表接口
+     * @return ResponseInterface
+     */
+    #[PostMapping("remote"), RemoteState(true)]
+    public function remote(): ResponseInterface
+    {
+        return $this->success($this->service->getRemoteList($this->request->all()));
     }
 }

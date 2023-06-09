@@ -23,7 +23,7 @@ class GenerateRequest extends MineFormRequest
             'id' => 'required',
             'generate_type' => 'required',
             'build_menu' => 'required',
-            'generate_menus' => 'required|array',
+            'generate_menus' => 'array',
             'menu_name' => 'required',
             'module_name' => 'required',
             'table_comment' => 'required',
@@ -41,6 +41,7 @@ class GenerateRequest extends MineFormRequest
     public function loadTableRules(): array
     {
         return [
+            'source' => 'required',
             'names' => 'required|array',
         ];
     }
@@ -53,6 +54,7 @@ class GenerateRequest extends MineFormRequest
     {
         return [
             'id' => '业务表ID',
+            'source' => '数据源',
             'generate_type' => '生成类型',
             'build_menu' => '是否构建菜单',
             'generate_menus' => '生成菜单列表',

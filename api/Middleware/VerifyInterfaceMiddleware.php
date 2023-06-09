@@ -18,6 +18,7 @@ use Mine\Event\ApiBefore;
 use App\System\Model\SystemApi;
 use App\System\Service\SystemApiService;
 use Hyperf\Di\Annotation\Inject;
+use Mine\Annotation\Api\MApiCollector;
 use Hyperf\Context\Context;
 use Mine\Exception\NormalStatusException;
 use Mine\Helper\MineCode;
@@ -50,27 +51,7 @@ class VerifyInterfaceMiddleware implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler):ResponseInterface
     {
-        $this->crossSetting($request);
-
         return $this->run($request, $handler);
-    }
-
-    /**
-     * 跨域设置
-     * @param $request
-     */
-    protected function crossSetting($request): void
-    {
-        $crossData = [
-            'Access-Control-Allow-Origin'      => '*',
-            'Access-Control-Allow-Methods'     => 'POST,GET,PUT,DELETE,OPTIONS',
-            'Access-Control-Allow-Headers'     => 'Version, Access-Token, User-Token, Api-Auth, User-Agent, Keep-Alive, Origin, No-Cache, X-Requested-With, If-Modified-Since, Pragma, Last-Modified, Cache-Control, Expires, Content-Type, X-E4M-With',
-            'Access-Control-Allow-Credentials' => 'true'
-        ];
-
-        foreach ($crossData as $name => $value) {
-            $request->withHeader($name, $value);
-        }
     }
 
     /**
@@ -87,7 +68,8 @@ class VerifyInterfaceMiddleware implements MiddlewareInterface
             /* @var $service SystemAppService */
             $service = container()->get(SystemAppService::class);
             $queryParams = $request->getQueryParams();
-            switch ($this->_getApiData()['auth_mode']) {
+            $apiData = $this->_getApiData();
+            switch ($apiData['auth_mode']) {
                 case SystemApi::AUTH_MODE_EASY:
                     if (empty($queryParams['app_id'])) {
                         return MineCode::API_APP_ID_MISSING;
@@ -95,13 +77,13 @@ class VerifyInterfaceMiddleware implements MiddlewareInterface
                     if (empty($queryParams['identity'])) {
                         return MineCode::API_IDENTITY_MISSING;
                     }
-                    return $service->verifyEasyMode($queryParams['app_id'], $queryParams['identity']);
+                    return $service->verifyEasyMode($queryParams['app_id'], $queryParams['identity'], $apiData);
                 case SystemApi::AUTH_MODE_NORMAL:
 
                     if (empty($queryParams['access_token'])) {
                         return MineCode::API_ACCESS_TOKEN_MISSING;
                     }
-                    return $service->verifyNormalMode($queryParams['access_token']);
+                    return $service->verifyNormalMode($queryParams['access_token'], $apiData);
                 default:
                     throw new \RuntimeException();
             }
@@ -117,6 +99,34 @@ class VerifyInterfaceMiddleware implements MiddlewareInterface
      */
     protected function apiModelCheck($request): ServerRequestInterface
     {
+        // 先对注解检测，有直接放行
+        $apiData = MApiCollector::getApiInfos();
+        $mineRequest = container()->get(MineRequest::class);
+
+        if (isset($apiData[$mineRequest->route('method')])) {
+            $apiModel = $apiData[$mineRequest->route('method')];
+
+            // 检查接口是否停用
+            if ($apiModel['status'] == SystemApi::DISABLE) {
+                throw new NormalStatusException(t('mineadmin.api_stop'), MineCode::RESOURCE_STOP);
+            }
+
+            // 检查接口请求方法
+            if ($apiModel['request_mode'] !== SystemApi::METHOD_ALL && $request->getMethod()[0] !== $apiModel['request_mode']) {
+                throw new NormalStatusException(
+                    t('mineadmin.not_allow_method', ['method' => $request->getMethod()]),
+                    MineCode::METHOD_NOT_ALLOW
+                );
+            }
+
+            $this->_setApiData($apiModel);
+
+            // 合并入参
+            return $request->withParsedBody(array_merge(
+                $request->getParsedBody(), ['apiData' => $apiModel]
+            ));
+        }
+
         $service = container()->get(SystemApiService::class);
         $apiModel = $service->mapper->one(function($query) {
             $request = container()->get(MineRequest::class);
